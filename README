@@ -1,0 +1,25 @@
+# Student Performance Prediction – R Data Mining Project
+
+## Overview
+This project investigates the behavioural and academic factors that influence student performance using a dataset of 6,378 records and 19 variables.  
+All analysis, modelling, and visualisation were conducted in R.
+
+## Methods Used
+- Data cleaning & wrangling (dplyr, tidyr)
+- Exploratory Data Analysis (ggplot2)
+- Logistic Regression (glm)
+- Decision Tree (rpart)
+- Model evaluation (confusion matrix, accuracy)
+
+## Repository Structure
+- data/ → raw & cleaned datasets  
+- scripts/ → R scripts for each analysis stage  
+- notebooks/ → RMarkdown notebook  
+- results/ → model outputs  
+- reports/ → final report or presentation  
+
+## How to Run
+1. Open the `.Rproj` file  
+2. Install packages:  
+   `install.packages(c("tidyverse", "rpart", "caret", "ggplot2"))`  
+3. Run scripts in order from `scripts/01_data_cleaning.R` onward  
