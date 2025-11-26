@@ -1,0 +1,412 @@
+---
+title: "data mining gp"
+output: html_document
+date: "2025-11-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+#laod csv data
+student <- read_csv("/Users/nisa/desktop/StudentPerformanceFactors.csv")
+#view data  
+View(student)
+```
+
+```{r}
+#perform data cleaning where in we remove null values and handle outliers and handle missing values
+student_clean <- na.omit(student)
+#view cleaned data
+View(student_clean)
+#print the changes that have been made after cleaning the data
+print(paste("Number of rows before cleaning:", nrow(student)))
+print(paste("Number of rows after cleaning:", nrow(student_clean)))
+```
+
+```{r}
+#create a new categorical variable where if the student's score is above 70 they are considered 'Pass' else 'Fail'. use the Exam_Score variable
+student_clean$Result <- ifelse(student_clean$Exam_Score > 70, 'good performance', 'poor performance')
+student_clean$Result <- factor(student_clean$Result,
+                               levels = c("poor performance", "good performance"))
+#view the updated data with the new categorical variable
+View(student_clean)
+```
+
+```{r}
+
+#Draw a histogram of Exam_Score and add a title
+
+# Set off-white background
+par(bg = "white")
+# Draw the histogram with black borders
+hist(student_clean$Exam_Score,
+     main = "Distribution of Exam Scores",
+     xlab = "Exam Score",
+     col = "#5c9ac2",          # Bar fill color
+     border = "white")       
+
+```
+
+
+
+
+
+
+
+
+```{r}
+# Create custom performance labels based on Exam_Score
+student_clean$Performance <- ifelse(student_clean$Exam_Score < 70, "score < 70", "score \u2265 70")
+
+# Set color palette: lighter and darker blue
+blues <- c("#89CFF0", "#174582")  # Light blue and dark blue
+
+# Create barplot with custom labels
+barplot(table(student_clean$Performance),
+        main = "Performance Distribution",
+        xlab = "Performance",
+        ylab = "Number of Students",
+        col = blues,
+        names.arg = c("score < 70", "score \u2265 70"))
+
+```
+
+```{r}
+#i dont recommend this 
+library(ggplot2)
+
+ggplot(student_clean, aes(x = Result, y = Hours_Studied, fill = Result)) +
+  geom_boxplot(alpha = 0.7, color = "black") +
+  scale_fill_manual(values = c("good performance" = "#A6CEE3",
+                               "poor performance" = "#1F78B4")) +
+  labs(
+    title = "Hours Studied by Performance",
+    x = "Result",
+    y = "Hours_Studied"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.title = element_text(size = 12),
+    legend.position = "right",
+    plot.title = element_text(face = "bold")
+  )
+
+```
+
+```{r}
+set.seed(123)
+# Create bins
+student_clean$Attendance_Bin <- cut(student_clean$Attendance, breaks = seq(0, 100, by = 20), include.lowest = TRUE)
+student_clean$Hours_Bin <- cut(student_clean$Hours_Studied, breaks = seq(min(student_clean$Hours_Studied), max(student_clean$Hours_Studied), length.out = 5), include.lowest = TRUE)
+```
+
+```{r}
+# Summarize data
+library(dplyr)
+grouped <- student_clean %>%
+  group_by(Attendance_Bin, Hours_Bin) %>%
+  summarise(Avg_Score = mean(Exam_Score), .groups = 'drop')
+```
+
+
+```{r}
+library(corrplot)
+
+# 选取数值型变量
+numeric_vars <- student_clean[sapply(student_clean, is.numeric)]
+
+# 计算相关矩阵
+cor_matrix <- cor(numeric_vars, use = "complete.obs")
+
+# 圆形相关图
+corrplot(cor_matrix, method = "circle", type = "upper",
+         tl.col = "black", tl.srt = 45, diag = FALSE)
+
+```
+
+
+
+```{r}
+library(ggplot2)
+library(GGally)
+####scater pot
+numeric_data <- student_clean[sapply(student_clean, is.numeric)]
+
+custom_blue <- "#1F78B4"
+light_blue  <- "#A6CEE3"
+mid_blue    <- "#6BAED6"
+dark_blue   <- "#08519C"
+
+ggpairs(
+  numeric_data,
+  columns = 1:ncol(numeric_data),
+  title = "Scatterplot Matrix of Numeric Features",
+  lower = list(
+    continuous = wrap("points", 
+                      colour = custom_blue, 
+                      alpha = 0.5, 
+                      size = 1.5)
+  ),
+  upper = list(
+    continuous = wrap("cor", 
+                      size = 4, 
+                      colour = dark_blue)
+  ),
+  diag = list(
+    continuous = wrap("densityDiag", 
+                      fill = light_blue, 
+                      colour = dark_blue,
+                      alpha = 0.7)
+  )
+) +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    panel.background = element_rect(fill = "white")
+  )
+
+```
+
+```{r}
+# 提取 numeric 变量
+numeric_vars <- student_clean[sapply(student_clean, is.numeric)]
+
+# 计算 Exam_Score 与其他 numeric 变量的相关性
+cor_to_exam <- sapply(numeric_vars, function(x) cor(x, numeric_vars$Exam_Score))
+
+# 移除 Exam_Score 自身的 1.0
+cor_to_exam <- cor_to_exam[names(cor_to_exam) != "Exam_Score"]
+
+# 绝对值排序
+cor_sorted <- sort(abs(cor_to_exam), decreasing = TRUE)
+
+print("Top correlations with Exam_Score:")
+print(cor_sorted)
+```
+
+```{r}
+top_k <- 6  # 显示前几个变量
+cor_df <- data.frame(
+  Variable = names(cor_sorted)[1:top_k],
+  Correlation = cor_sorted[1:top_k]
+)
+
+ggplot(cor_df, aes(x = reorder(Variable, Correlation), 
+                   y = Correlation, fill = Correlation)) +
+  geom_col() +
+  coord_flip() +
+  geom_text(aes(label = sprintf("%.3f", Correlation)),
+            hjust = -0.1,
+            size = 5,
+            color = "#1F3A93") +   # 深蓝数字，清晰
+  scale_fill_gradient(
+    low = "#D6E4F8",     # 最浅蓝（弱相关）
+    high = "#4788C6",    # 深蓝（强相关）
+    name = "Correlation"
+  ) +
+  labs(title = "Top Correlations with Exam_Score",
+       x = "Variable", y = "Correlation") +
+  theme_minimal(base_size = 14) +
+  ylim(0, max(cor_df$Correlation) * 1.15)
+
+```
+```{r}
+library(ggplot2)
+
+# 按学习时间分箱（4 组，可调整 breaks 数量）
+student_clean$Hours_Bin <- cut(
+  student_clean$Hours_Studied,
+  breaks = 4,
+  include.lowest = TRUE
+)
+
+ggplot(student_clean, aes(x = Exam_Score, fill = Hours_Bin)) +
+  geom_density(alpha = 0.45, colour = "black") +
+  scale_fill_manual(
+    values = c("#D6E4F8", "#A5CBE3", "#79A8E8", "#4788C6"),
+    name   = "Study Hours (bins)"
+  ) +
+  labs(
+    title = "Exam Score Distribution by Study Hours",
+    x = "Exam_Score",
+    y = "Density"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+```
+```{r}
+# 按出勤率分箱，同样分成 4 组
+student_clean$Attendance_Bin <- cut(
+  student_clean$Attendance,
+  breaks = 4,
+  include.lowest = TRUE
+)
+
+ggplot(student_clean, aes(x = Attendance_Bin, y = Exam_Score, fill = Attendance_Bin)) +
+  geom_boxplot(alpha = 0.8) +
+  scale_fill_manual(values = c("#D6E4F8", "#A5CBE3", "#79A8E8", "#4788C6")) +
+  labs(
+    title = "Exam Scores by Attendance Level",
+    x = "Attendance (binned)",
+    y = "Exam_Score"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 20, hjust = 1)
+  )
+```
+
+
+
+```{r}
+#Identify features that may help prediction
+significant_features <- setdiff(
+  names(correlated_features[abs(correlated_features) > 0.1]),
+  "Exam_Score"
+)
+print("Significant features for predicting Exam_Score:") 
+print(significant_features)
+```
+
+```{r}
+#Split Data Into Training and Test Sets
+set.seed(123) # For reproducibility
+train_indices <- sample(1:nrow(student_clean), size = 0.7 * nrow(student_clean))
+train_data <- student_clean[train_indices, ]
+test_data <- student_clean[-train_indices, ]
+#view train and test data
+View(train_data)
+View(test_data)
+```
+
+```{r}
+table(train_data$Result)
+
+```
+
+```{r}
+#create a logistic regression model to predict Exam_Score using all features identified earlier
+model <- glm(Result ~ Hours_Studied + Attendance + Previous_Scores + Tutoring_Sessions, data=train_data, family=binomial())
+#view model summary
+summary(model)
+```
+
+
+```{r}
+library(rpart)
+library(rpart.plot)
+
+# Train model
+tree_model <- rpart(
+  Result ~ Hours_Studied + Attendance + Previous_Scores + Tutoring_Sessions,
+  data = train_data,
+  method = "class"
+)
+
+
+rpart.plot(
+  tree_model,
+  box.palette = "Blues",   # 节点背景蓝色渐变
+  col = "black",         # 节点框线颜色（也是节点文字颜色）
+  split.col = "black",     # 分裂文本黑色
+  branch.col = "#1f77b4",  # 树枝蓝色
+  nn.col = "black",        # 节点编号黑色
+  fallen.leaves = TRUE
+ 
+)
+
+```
+
+```{r}
+# logistic model：预测概率（预测是 "good performance" 的概率）
+logistic_prob <- predict(model, newdata = test_data, type = "response")
+
+# 概率 ≥ 0.5 认为是 good performance，否则 poor performance
+logistic_class <- ifelse(logistic_prob >= 0.5,
+                         "good performance",
+                         "poor performance")
+
+# 转成 factor，并且保证 level 顺序与 Result 一致
+logistic_class <- factor(logistic_class,
+                         levels = levels(test_data$Result))
+
+
+# decision tree：直接得到类别（如果 method="class"）
+tree_class <- predict(tree_model, newdata = test_data, type = "class")
+```
+
+```{r}
+test_y <- test_data$Result   # factor: "poor performance"/"good performance"
+
+logistic_acc <- mean(logistic_class == test_y)
+tree_acc     <- mean(tree_class == test_y)
+
+print(paste("Logistic accuracy:", round(logistic_acc, 4)))
+print(paste("Tree accuracy:", round(tree_acc, 4)))
+
+if (logistic_acc > tree_acc) {
+  print("Logistic Regression performs better.")
+} else {
+  print("Decision Tree performs better.")
+}
+```
+```{r}
+# logistic confusion matrix
+table(Predicted = logistic_class, Actual = test_data$Result)
+
+# tree confusion matrix
+table(Predicted = tree_class, Actual = test_data$Result)
+
+```
+```{r}
+library(caret)
+
+conf_logistic <- confusionMatrix(logistic_class, test_data$Result)
+conf_tree <- confusionMatrix(tree_class, test_data$Result)
+
+conf_logistic
+conf_tree
+
+```
+```{r}
+library(pROC)
+
+# logistic
+logistic_roc <- roc(test_data$Result, logistic_prob)
+plot(logistic_roc, col="#89CFF0")
+auc(logistic_roc)
+
+# tree
+tree_prob <- predict(tree_model, newdata=test_data, type="prob")[,2]
+tree_roc <- roc(test_data$Result, tree_prob)
+lines(tree_roc, col="#174582")
+auc(tree_roc)
+```
+
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
