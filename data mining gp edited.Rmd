@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(readr)
 #laod csv data
-student <- read_csv("/Users/nisa/desktop/StudentPerformanceFactors.csv")
+student <- read_csv("StudentPerformanceFactors.csv")
 #view data  
 View(student)
 ```
